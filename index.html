@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email/Password Authentication Example</title>
+
+  <!-- Load d Bootstrap and BootstrapVue CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
+
+
+  <!-- Load polyfills to support older browsers -->
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es2015%2CIntersectionObserver"
+    crossorigin="anonymous"></script>
+
+  <!-- Load Vue followed by BootstrapVue -->
+  <script src="https://unpkg.com/vue@latest/dist/vue.min.js"></script>
+  <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
+
+  <!-- Load the following for BootstrapVueIcons support -->
+  <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue-icons.min.js"></script>
+
+
+</head>
+
+<body>
+
+  <script src="vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+  <div class="container">
+
+    <div id="appFirebaseLogin">
+
+      <div v-if="loginStatus">
+        <nav class="navbar navbar-expand-lg navbar navbar-dark bg-dark">
+          <a class="navbar-brand">Menu</a>
+          <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"
+            aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNavDropdown">
+            <ul class="navbar-nav">
+              <li class="nav-item active">
+                <a class="nav-link" href="./index.html">Home <span class="sr-only">(current)</span></a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="./contents/face-emotion.html">感情分析</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="./contents/ocr-read.html">OCR機能</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="./contents/dog.html">ワンちゃん検索</a>
+              </li>
+            </ul>
+          </div>
+        </nav>
+      </div>
+
+      <div class="row" v-if="loginStatus">
+        <div class="col">
+          <img class="rounded mx-auto d-block" src="xxxxxxxxx" width="400" height="auto" vspace="30">
+        </div>
+      </div>
+
+      <div class="row" v-else>
+        <div class="col">
+          <img class="rounded mx-auto d-block" src="xxxxxxxxx" width="400" height="auto" vspace="30">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+
+          <div v-if="loginStatus">
+            <!-- mypage -->
+            <div class="row">
+              <div class="col-6">
+                <div class="form-group">
+                  ようこそ、{{ userName }} さん！
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="form-group">
+                  <button class="btn btn-primary" v-on:click="handlerLogout">Logout</button>
+                </div>
+              </div>
+            </div>
+          </div><!-- mypage -->
+
+          <div v-else>
+            <!-- ログイン画面 -->
+            <div class="form-group">
+              <label>Email</label>
+              <input v-model="email" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input v-model="password" type="password" class="form-control">
+            </div>
+            <div class="form-group">
+              <button class="btn btn-primary" v-on:click="handlerLogin">Login</button>
+            </div>
+          </div><!-- ログイン画面 -->
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+
+
+  <!-- FireBaseの使う機能を指定する -->
+  <!-- https://firebase.google.com/docs/web/setup?hl=ja#available-libraries -->
+  <script src="https://www.gstatic.com/firebasejs/6.2.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/6.2.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/6.2.0/firebase-firestore.js"></script>
+  <script>
+    // ここは自分のアカウントう情報
+    // Your web app's Firebase configuration
+    var firebaseConfig = {
+      apiKey: "AIzaSyDVEeqZ7jsgS8TEdpcxXviTAcq4l5FzDyg",
+      authDomain: "life210522.firebaseapp.com",
+      databaseURL: "gs://life210522.appspot.com",
+      projectId: "life210522",
+      storageBucket: "life210522.appspot.com",
+      messagingSenderId: "1065301634351",
+      appId: "1:1065301634351:web:8f8d5600a6e877a4be05da"
+      // measurementId: "xxxxxxxxxxxxxxx"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    // firestoreのインスタンス
+    const db = firebase.firestore();
+  </script>
+
+
+  <script>
+    const app = new Vue({
+      el: '#appFirebaseLogin',
+      data: {
+        email: '',
+        password: '',
+        loginStatus: false,
+        userName: '',
+        userID: '',
+        message: '',
+        items: []
+      },
+      methods: {
+
+        /////////////////// Firebase Authentication ///////////////////
+
+        // ログアウトボタンの挙動
+        handlerLogout: async function () {
+          console.log('handlerLogout');
+          await firebase.auth().signOut();
+          await this.checkAuthStateChanged();
+          // データ更新を監視するリスナーを削除する Cloud Firestore 用の処理
+          this.endSnapShot();
+        },
+
+        // ログインボタンの挙動
+        handlerLogin: async function () {
+          console.log('handlerLogin');
+
+          // DBにログイン日時を書き込む処理
+          this.handlerAddMemo();
+
+          try {
+            const resSignInWithEmailAndPassword = await firebase.auth().signInWithEmailAndPassword(this.email, this.password);
+            console.log(resSignInWithEmailAndPassword);
+          } catch (error) {
+            console.log(error);
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            if (errorCode === 'auth/wrong-password') {
+              alert('Wrong password.');
+            } else {
+              alert(errorMessage);
+            }
+          }
+
+
+          // ログイン処理後 Firebase Authentication 認証状態のチェック
+          this.checkAuthStateChanged();
+
+
+        },
+
+        checkAuthStateChanged: async function () {
+
+          // 認証状態の変更を取得
+          let user = await this.promiseAuthStateChanged();
+
+
+
+          if (user) {
+            // ログイン済み
+            console.log('ログイン済み');
+            // Vue に値を反映
+            this.loginStatus = true;    // ログイン状況
+            this.userName = user.email; // ユーザー名（メールアドレス）
+            this.userID = user.uid;     // Firebase で管理されているユニークなユーザーID
+            // データ更新を監視するリスナーに登録する Cloud Firestore 用の処理
+            this.startSnapShot();
+
+          } else {
+            // 未ログイン
+            console.log('未ログイン');
+            this.loginStatus = false;  // ログイン状況
+          }
+
+        },
+
+        promiseAuthStateChanged: async _ => {
+          return new Promise((resolve, reject) => {
+            const f_auth = firebase.auth();
+            f_auth.onAuthStateChanged(user => {
+              resolve(user);
+            });
+          });
+
+        },
+
+        /////////////////// Cloud Firestore ///////////////////
+
+        // Cloud Firestore用。これを呼ぶとDBにログイン日時が書き込まれる
+        handlerAddMemo: async function () {
+          console.log('handlerAddMemo');
+
+          // ここの中にuser情報をとってくる。
+          const data = {
+            message: this.message,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          };
+
+          try {
+            await db.collection("memos").doc().set(data);
+            console.log("Document successfully written!");
+          } catch (error) {
+            console.log(error);
+            console.error("Error writing document: ", error);
+          }
+        },
+
+        // データ更新を監視するためリスナーに登録する
+        startSnapShot: function () {
+          console.log('常に監視するためリスナーに登録する');
+          this.unsubscribe = db.collection('memos').orderBy('timestamp', 'desc').onSnapshot(this.listenerSnapShot);
+        },
+
+        // データ更新を監視するリスナーを削除する
+        endSnapShot: function () {
+          console.log('常に監視するリスナーを削除する');
+          this.unsubscribe();
+        },
+
+        //データ更新が行われた場合に動作する
+        listenerSnapShot: function (querySnapshot) {
+          //console.log('listenerSnapShot');
+          this.items = [];
+          const _this = this;
+
+          querySnapshot.docs.map(function (doc) {
+            const _data = doc.data({ serverTimestamps: 'estimate' });
+            let timestampDate = new Date();
+            timestampDate.setTime(_data.timestamp.seconds * 1000);
+
+            console.log(_this.userName)
+            _this.items.push({
+              message: _data.message,
+              dateString: timestampDate.toString(),
+              timestamp: _data.timestamp
+
+            });
+          });
+        }
+
+      }
+      ,
+      mounted() {
+        console.log('mounted');
+
+        /////////////////// Firebase Authentication ///////////////////
+        // はじめて表示されたときの Firebase Authentication 認証状態のチェック
+        this.checkAuthStateChanged();
+      }
+    })
+  </script>
+
+
+
+</body>
+
+</html>
+
+
+
+<!-- <script src="https://www.gstatic.com/firebasejs/8.6.2/firebase.js"></script> -->
+
+
+
+<!-- レシピの読み込み -->
+<!-- <script src="recipe.js"></script> -->
+
+<!-- <script>
+    // 楽天API用パラメータ
+    const api = 'https://app.rakuten.co.jp/services/api/Recipe/CategoryList/20170426?format=json&categoryType=large&applicationId=1003344918916784887'; 
+    
+    const applicationId = '1003344918916784887'; 
+    const affiliateId = '2022e2d2.79be1c0b.2022e2d3.59bafcde'; 
+
+    // 検索キーワード
+    const keyword = 'ダイエット';
+
+    // 一度に読み込む件数
+    const itemsPerPage = 1;
+
+    // // PCかスマホかで検索条件を分ける
+    // var carrier = /android|iphone|ipad|ipod/i.test(navigator.userAgent) ? 2 : 0;
+
+    axios.get(api)
+    // リクエスト成功時の処理(responseに結果が入っている)
+    .then(function (response) {
+      // responseオブジェクトの中身を表示。ここで欲しい情報がどこにあるか確認する
+      console.log(response.data);
+      // const data = [];
+      // response.data.items.forEach(function (x) {
+      //   data.push(`<p>${x.volumeInfo.title}</p>`);
+      // });
+      // $('#output').html(data);
+
+      // }).catch(function (error) {
+      // // リクエスト失敗時の処理(errorにエラー内容が入っている)
+      // console.log(error);
+
+      // }).finally(function () {
+      // //   // 成功失敗に関わらず必ず実行
+      //   console.log('done!');
+    });
+
+
+  </script> -->
+</body>
+
+</html>
+
+
+<!-- application_secret -->
+<!-- d5f366cd979fe6e517b1102ee040d84d7a9824b4 -->
+
+<!-- GEThttps://app.rakuten.co.jp/engine/api/Recipe/Search/20140719?[parameter]=[value]... -->
